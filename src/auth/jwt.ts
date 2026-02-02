@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import type { StringValue } from "ms";
-import type { TokenPayload } from "./types";
+import type { TokenEntity, TokenPayload } from "./types";
 
 export async function signToken({
   payload,
@@ -21,5 +21,5 @@ export async function verifyToken({
   token: string;
   secret: string;
 }) {
-  return jwt.verify(token, secret);
+  return jwt.verify(token, secret) as unknown as TokenEntity;
 }

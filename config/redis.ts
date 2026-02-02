@@ -85,10 +85,21 @@ export class Cache {
    * Delete multiple keys matching pattern
    */
   async deletePattern(pattern: string): Promise<void> {
-    const keys = await redis.keys(this.getKey(pattern));
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
+    let cursor = "0";
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        "MATCH",
+        pattern,
+        "COUNT",
+        100,
+      );
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } while (cursor!=='0');
   }
 
   /**

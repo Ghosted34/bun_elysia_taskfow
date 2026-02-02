@@ -5,8 +5,7 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/jsonwebtoken": "^9.0.10",
-    "drizzle-kit": "^0.31.8"
+    "@types/jsonwebtoken": "^9.0.10"
   },
   "peerDependencies": {
     "typescript": "^5"

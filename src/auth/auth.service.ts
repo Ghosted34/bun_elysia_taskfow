@@ -9,12 +9,13 @@ import { cache } from "../../config/redis";
 import type { RegisterInput, LoginInput } from "./auth.schema";
 import { AuthRepo } from "./auth.repository";
 import {
+  BadRequestError,
   ConflictError,
   NotFoundError,
   UnauthorizedError,
 } from "../utils/error";
 import type { User } from "../../config/db/schema";
-import { signToken } from "./jwt";
+import { signToken, verifyToken } from "./jwt";
 import { config } from "../config";
 
 const authRepo = new AuthRepo();
@@ -24,8 +25,6 @@ export class AuthService {
    * Register new user
    */
   async register(input: RegisterInput) {
-    // Check if user already exists
-
     const existingUser = await authRepo.findOne({
       field: "email",
       value: input.email,
@@ -63,8 +62,10 @@ export class AuthService {
    */
   async login(input: LoginInput) {
     // Find user by email
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, input.email),
+    const user = await authRepo.findOne({
+      field: "email",
+      value: input.email,
+      select: ["id", "email", "password", "full_name"],
     });
 
     if (!user) {
@@ -72,17 +73,14 @@ export class AuthService {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(input.password, user.password);
+    const isValidPassword = await this.verifyPassword(
+      input.password,
+      user.password,
+    );
 
     if (!isValidPassword) {
       throw new UnauthorizedError("Invalid credentials");
     }
-
-    // Update last login timestamp
-    await db
-      .update(users)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, user.id));
 
     // Generate tokens
     const tokens = await this.generateTokenPair(user);
@@ -99,30 +97,26 @@ export class AuthService {
   /**
    * Refresh access token
    */
-  async refreshAccessToken(token: string) {
+  async refreshToken(token:string) {
     // Verify refresh token
-    const payload = verifyRefreshToken(token);
-
-    // Check if token exists and is not revoked
-    const storedToken = await db.query.refreshTokens.findFirst({
-      where: and(
-        eq(refreshTokens.id, payload.tokenId),
-        eq(refreshTokens.isRevoked, false),
-      ),
+    const payload = await verifyToken({
+      token,
+      secret: config.jwt.refreshSecret,
     });
 
-    if (!storedToken) {
-      throw new UnauthorizedError("Invalid refresh token");
-    }
+    // Check if token exists and is not revoked
+    const cachedRefresh = await cache.get(
+      `refreshToken:${payload.sub}:${payload.device}`,
+    );
 
-    // Check expiration
-    if (new Date() > storedToken.expiresAt) {
-      throw new UnauthorizedError("Refresh token expired");
+    if (!cachedRefresh) {
+      throw new UnauthorizedError("Please Log In");
     }
 
     // Get user
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, payload.userId),
+    const user = await authRepo.findOneById({
+      id: payload.sub,
+      select: ["id", "role"],
     });
 
     if (!user) {
@@ -130,65 +124,62 @@ export class AuthService {
     }
 
     // Generate new access token
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
+    const accessToken = await signToken({
+      payload: { sub: user.id, role: user.role || "", device:payload.device, type: "access" },
+      time: 900,
+      secret: config.jwt.secret,
     });
 
     return { accessToken };
   }
 
   /**
-   * Logout (revoke refresh token)
+   * Logout (revoke access and refresh token)
    */
   async logout(token: string) {
-    const payload = verifyRefreshToken(token);
+    const payload = await verifyToken({ token, secret: config.jwt.secret });
 
-    // Revoke the refresh token
-    await db
-      .update(refreshTokens)
-      .set({ isRevoked: true })
-      .where(eq(refreshTokens.id, payload.tokenId));
+    const refreshKey = `refreshToken:${payload.sub}:${payload.device}`;
+    // Check if token exists and is not revoked
+    const cachedRefresh = await cache.get(refreshKey);
 
-    // Invalidate user cache
-    await cache.delete(`user:${payload.userId}`);
+    if (!cachedRefresh) {
+      throw new UnauthorizedError("Please Log In");
+    }
+    await Promise.all([
+      cache.set(`blacklisted:${token}`, `Blacklisted!!!`, 900),
+      cache.delete(refreshKey),
+    ]);
+    return { message: "Logged Out" };
   }
 
   /**
-   * Revoke all refresh tokens for a user
+   * LogoutAll (revoke access and refresh tokens for all devices)
    */
-  async revokeAllTokens(userId: string) {
-    await db
-      .update(refreshTokens)
-      .set({ isRevoked: true })
-      .where(eq(refreshTokens.userId, userId));
-
-    // Invalidate user cache
-    await cache.delete(`user:${userId}`);
+  async logoutAll(id: string) {
+    await this.clearAllTokens(id);
+    return { message: "Logged Out" };
   }
 
   /**
    * Change password
    */
   async changePassword(
-    userId: string,
+    id: string,
     currentPassword: string,
     newPassword: string,
   ) {
     // Get user
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
+    const cached = await authRepo.findOneById({ id, select: ["password"] });
 
-    if (!user) {
+    if (!cached) {
       throw new NotFoundError("User not found");
     }
 
     // Verify current password
-    const isValidPassword = await bcrypt.compare(
+    const isValidPassword = await this.verifyPassword(
       currentPassword,
-      user.password,
+      cached.password,
     );
 
     if (!isValidPassword) {
@@ -196,19 +187,27 @@ export class AuthService {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, config.bcrypt.rounds);
+    const hashedPassword = await this.hashPassword(newPassword);
 
     // Update password
-    await db
-      .update(users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
-      .where(eq(users.id, userId));
+    await authRepo.update({
+      id,
+      data: { password: hashedPassword },
+      select: ["id", "full_name", "role"],
+    });
+    await this.clearAllTokens(id);
 
-    // Revoke all refresh tokens (force re-login on all devices)
-    await this.revokeAllTokens(userId);
+    return { message: "Password changed. Please Log In Again" };
+  }
 
-    // Invalidate user cache
-    await cache.delete(`user:${userId}`);
+  private async clearAllTokens(id: string) {
+    const pattern = `refreshToken:${id}:*`;
+
+    await Promise.all([
+      cache.deletePattern(pattern),
+      cache.set(`access:${id}`, Date.now(), 900),
+    ]);
+    return;
   }
 
   /**
@@ -222,25 +221,22 @@ export class AuthService {
     const device = this.generateDeviceId();
 
     // Generate access token
-    const accessToken = signToken({
-      payload: { ...tokenPayload, type: "access", deviceId: device },
+    const accessToken = await signToken({
+      payload: { ...tokenPayload, type: "access", device },
       secret: config.jwt.secret,
       time: config.jwt.expiry as StringValue,
     });
-    const refreshToken = signToken({
-      payload: { ...tokenPayload, type: "refresh", deviceId: device },
+    const refreshToken = await signToken({
+      payload: { ...tokenPayload, type: "refresh", device },
       secret: config.jwt.refreshSecret,
       time: config.jwt.refreshExpiry as StringValue,
     });
 
     // cache refresh token in redis with expiry
-    const refreshTokenExpiry =
-      typeof config.jwt.refreshExpiry === "string"
-        ? parseInt(config.jwt.refreshExpiry)
-        : config.jwt.refreshExpiry;
+    const refreshTokenExpiry = 60 * 60 * 24 * 1;
 
     await cache.set(
-      `refreshToken:${tokenPayload.sub}`,
+      `refreshToken:${tokenPayload.sub}:${device}`,
       refreshToken,
       refreshTokenExpiry,
     );

@@ -87,6 +87,9 @@ export async function authenticate(context: Context): Promise<AuthUser> {
   // Get user details
   const user = await getUserById(payload.sub);
 
+  
+
+
   return user;
 }
 

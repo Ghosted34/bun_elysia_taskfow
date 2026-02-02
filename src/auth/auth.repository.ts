@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../config/db";
-import { users } from "../../config/db/schema";
+import { users, type User } from "../../config/db/schema";
 
 export class AuthRepo {
   async findOneById({
@@ -60,7 +60,7 @@ export class AuthRepo {
     select,
   }: {
     id: string;
-    data: any;
+    data: Partial<User>;
     select?: (keyof typeof users)[];
   }) {
     const returning =
