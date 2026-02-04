@@ -59,7 +59,7 @@ export const projects = pgTable(
       .default(sql`uuidv7()`),
     name: text("name").notNull(),
     description: text("description"),
-    ownerId: text("owner_id")
+    ownerId: uuid("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
 
@@ -112,14 +112,14 @@ export const tasks = pgTable(
     priority: taskPriorityEnum("priority").notNull().default("medium"),
 
     // Relationships
-    projectId: uuid("project_id")
-      .default(sql`uuidv7()`)
-      .references(() => projects.id, { onDelete: "cascade" }),
-    assigneeId: uuid("assignee_id")
-      .default(sql`uuidv7()`)
-      .references(() => users.id, { onDelete: "set null" }),
+    assigneeId: uuid("assignee_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    
     creatorId: uuid("creator_id")
-      .default(sql`uuidv7()`)
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     dueDate: timestamp("due_date"),
@@ -134,8 +134,8 @@ export const tasks = pgTable(
   },
 
   (table) => [
-    index("tasks_project_id_idx").on(table.projectId),
     index("tasks_assignee_id_idx").on(table.assigneeId),
+    index("tasks_project_id_idx").on(table.projectId),
     index("tasks_creator_id_idx").on(table.creatorId),
     index("tasks_status_idx").on(table.status),
     index("tasks_due_date_idx").on(table.dueDate),

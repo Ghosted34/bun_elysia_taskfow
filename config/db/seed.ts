@@ -3,6 +3,7 @@
  * Populate database with sample data for testing and development
  */
 
+import { sql } from "drizzle-orm";
 import { db } from "./index";
 import { users, projects, tasks } from "./schema";
 
@@ -14,7 +15,17 @@ export async function hashPassword(password: string) {
 }
 
 async function seed() {
+
+console.log('Flushing DB...')
+    // Order matters if you have FK constraints
+  await db.execute(sql`TRUNCATE TABLE ${tasks} RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE ${projects} RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE ${users} RESTART IDENTITY CASCADE`);
+  console.log("✅ Database flushed");
+
   console.log("🌱 Seeding database...");
+
+  
 
   try {
     // Create users with different roles
@@ -27,25 +38,25 @@ async function seed() {
         {
           email: "admin@example.com",
           password: hashedPassword,
-          name: "Admin User",
+          full_name: "Admin User",
           role: "ADMIN",
         },
         {
           email: "manager@example.com",
           password: hashedPassword,
-          name: "Manager User",
+          full_name: "Manager User",
           role: "MANAGER",
         },
         {
           email: "editor@example.com",
           password: hashedPassword,
-          name: "Editor User",
+          full_name: "Editor User",
           role: "EDITOR",
         },
         {
           email: "viewer@example.com",
           password: hashedPassword,
-          name: "Viewer User",
+          full_name: "Viewer User",
           role: "VIEWER",
         },
       ])
@@ -85,8 +96,8 @@ async function seed() {
       {
         title: "Design homepage mockup",
         description: "Create Figma mockup for new homepage",
-        status: "DONE",
-        priority: "HIGH",
+        status: "done",
+        priority: "high",
         projectId: project1.id,
         assigneeId: editor.id,
         creatorId: admin.id,
@@ -95,8 +106,8 @@ async function seed() {
       {
         title: "Implement responsive navigation",
         description: "Build mobile-friendly navigation menu",
-        status: "IN_PROGRESS",
-        priority: "HIGH",
+        status: "in_progress",
+        priority: "high",
         projectId: project1.id,
         assigneeId: editor.id,
         creatorId: admin.id,
@@ -105,8 +116,8 @@ async function seed() {
       {
         title: "Optimize images for web",
         description: "Compress and convert images to WebP",
-        status: "TODO",
-        priority: "MEDIUM",
+        status: "todo",
+        priority: "medium",
         projectId: project1.id,
         assigneeId: editor.id,
         creatorId: admin.id,
@@ -117,8 +128,8 @@ async function seed() {
       {
         title: "Set up React Native project",
         description: "Initialize RN project with TypeScript",
-        status: "DONE",
-        priority: "URGENT",
+        status: "done",
+        priority: "urgent",
         projectId: project2.id,
         assigneeId: manager.id,
         creatorId: manager.id,
@@ -127,8 +138,8 @@ async function seed() {
       {
         title: "Implement authentication flow",
         description: "Add login/signup screens and JWT handling",
-        status: "IN_PROGRESS",
-        priority: "URGENT",
+        status: "in_progress",
+        priority: "urgent",
         projectId: project2.id,
         assigneeId: editor.id,
         creatorId: manager.id,
@@ -137,8 +148,8 @@ async function seed() {
       {
         title: "Design app icons",
         description: "Create app icons for iOS and Android",
-        status: "TODO",
-        priority: "LOW",
+        status: "todo",
+        priority: "low",
         projectId: project2.id,
         assigneeId: editor.id,
         creatorId: manager.id,
@@ -149,8 +160,8 @@ async function seed() {
       {
         title: "Document authentication endpoints",
         description: "Write OpenAPI specs for /auth routes",
-        status: "IN_PROGRESS",
-        priority: "MEDIUM",
+        status: "in_progress",
+        priority: "medium",
         projectId: project3.id,
         assigneeId: editor.id,
         creatorId: editor.id,
@@ -159,8 +170,8 @@ async function seed() {
       {
         title: "Add example requests",
         description: "Provide cURL examples for all endpoints",
-        status: "TODO",
-        priority: "LOW",
+        status: "todo",
+        priority: "low",
         projectId: project3.id,
         assigneeId: editor.id,
         creatorId: editor.id,
@@ -170,15 +181,15 @@ async function seed() {
       {
         title: "Code review checklist",
         description: "Create standardized code review guidelines",
-        status: "TODO",
-        priority: "MEDIUM",
+        status: "todo",
+        priority: "medium",
         creatorId: admin.id,
       },
       {
         title: "Update dependencies",
         description: "Update npm packages to latest versions",
-        status: "TODO",
-        priority: "LOW",
+        status: "todo",
+        priority: "low",
         creatorId: manager.id,
       },
     ]);

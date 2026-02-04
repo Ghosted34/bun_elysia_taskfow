@@ -34,7 +34,7 @@ export const app = new Elysia()
       },
     })
   )
-
+.derive(requestLogger.derive)
   // CORS Configuration
   .use(
     cors({

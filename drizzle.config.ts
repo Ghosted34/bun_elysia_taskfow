@@ -4,7 +4,7 @@ export default defineConfig({
   schema: "./config/db/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: Bun.env.DB_URL!,
+    url: process.env.DB_URL!,
   },
   verbose: true,
 });

@@ -6,29 +6,47 @@
 import { Elysia } from 'elysia';
 import { logger } from '../utils/logger';
 
-export const requestLogger = new Elysia({ name: 'request-logger' })
-  .derive(({ request }) => {
-    // Store start time in a way that persists through the request lifecycle
-    return {
-      requestStartTime: Date.now()
-    };
-  })
-  .onBeforeHandle(({ request }) => {
-    logger.info({
-      method: request.method,
-      url: request.url,
-      userAgent: request.headers.get('user-agent'),
-    }, 'Incoming request');
-  })
-  .onAfterHandle(({ request, requestStartTime, set }) => {
+// requestLogger.ts
+export const requestLogger = {
+  // Attach per-request state
+  derive: ({ request }: { request: Request }) => ({
+    requestStartTime: Date.now()
+  }),
+
+  // Logs request info before handling
+  onBeforeHandle: ({ request }: { request: Request }) => {
+    logger.info(
+      {
+        method: request.method,
+        url: request.url,
+        userAgent: request.headers.get('user-agent'),
+      },
+      'Incoming request'
+    );
+  },
+
+  // Logs request completion and adds X-Response-Time header
+  onAfterHandle: ({
+    request,
+    requestStartTime,
+    set,
+  }: {
+    request: Request;
+    requestStartTime: number;
+    set: { headers: Record<string, string> };
+  }) => {
     const duration = Date.now() - requestStartTime;
-    
-    logger.info({
-      method: request.method,
-      url: request.url,
-      duration: `${duration}ms`,
-    }, 'Request completed');
-    
+
+    logger.info(
+      {
+        method: request.method,
+        url: request.url,
+        duration: `${duration}ms`,
+      },
+      'Request completed'
+    );
+
     // Add response time header
     set.headers['x-response-time'] = `${duration}ms`;
-  });
+  },
+};
