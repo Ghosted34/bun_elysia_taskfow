@@ -2,8 +2,6 @@
  * Request Logger Middleware
  * Logs all incoming requests and responses
  */
-
-import { Elysia } from 'elysia';
 import { logger } from '../utils/logger';
 
 // requestLogger.ts

@@ -12,6 +12,7 @@ import { handleError } from './middlewares/error';
 import { checkDatabaseConnection } from '../config/db';
 import { checkRedisConnection } from '../config/redis';
 import { authRoutes } from './auth/auth.routes';
+import { tasksRoutes } from './tasks/task.routes';
 
 
 /**
@@ -80,7 +81,7 @@ export const app = new Elysia()
   .group('/api', (app) =>
     app
       .use(authRoutes)
-      // .use(tasksRoutes)
+      .use(tasksRoutes)
   )
 
   // 404 Handler

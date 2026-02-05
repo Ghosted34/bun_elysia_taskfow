@@ -17,21 +17,21 @@ export interface AuthUser {
   id: string;
   email: string;
   role: string;
-  name: string;
+  full_name: string;
 }
 
 /**
  * Extract token from Authorization header
  */
-function extractToken(authHeader: string | null): string {
+function extractToken(authHeader: string | null | undefined): string {
   if (!authHeader) {
-    throw new UnauthorizedError("No authorization header provided");
+    throw new UnauthorizedError("Not Authenticated");
   }
 
   const [scheme, token] = authHeader.split(" ");
 
   if (scheme !== "Bearer" || !token) {
-    throw new UnauthorizedError("Invalid authorization header format");
+    throw new UnauthorizedError("Not Authenticated");
   }
 
   return token;
@@ -56,7 +56,7 @@ async function getUserById(userId: string): Promise<AuthUser> {
       id: true,
       email: true,
       role: true,
-      name: true,
+      full_name: true,
     },
   });
 
@@ -75,7 +75,7 @@ async function getUserById(userId: string): Promise<AuthUser> {
  * Verifies JWT and attaches user to context
  */
 export async function authenticate(context: Context): Promise<AuthUser> {
-  const authHeader = context.request.headers.get("authorization");
+  const authHeader = context?.request?.headers?.get("authorization");
   const token = extractToken(authHeader);
 
   // Verify token
@@ -84,11 +84,12 @@ export async function authenticate(context: Context): Promise<AuthUser> {
     secret: config.jwt.secret,
   })) as TokenPayload;
 
+  if (!payload) {
+    throw new UnauthorizedError("Not Authenticated");
+  }
+
   // Get user details
   const user = await getUserById(payload.sub);
-
-  
-
 
   return user;
 }
