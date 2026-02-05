@@ -6,17 +6,18 @@ import {
   type Role,
 } from "../utils/permissions";
 import { ForbiddenError } from "../utils/error";
+import type { Context } from "elysia";
 
 /**
  * Require specific permission
  * Use this to protect routes that need specific permissions
  */
 export function requirePermission(permission: Permission) {
-  return (user: AuthUser) => {
-    if (!hasPermission(user.role as Role, permission)) {
+  return (ctx: Context) => {
+    if (!hasPermission(ctx.user.role as Role, permission)) {
       throw new ForbiddenError(
         `Insufficient permissions. Required: ${permission}`,
-        { required: permission, userRole: user.role },
+        { required: permission, userRole: ctx.user.role },
       );
     }
   };

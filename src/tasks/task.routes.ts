@@ -6,7 +6,6 @@
 import { Elysia, t, type Context } from "elysia";
 import { TaskController } from "./task.controller";
 import { authenticate } from "../middlewares/authentication";
-import { requirePermission } from "../middlewares/authorization";
 import { rateLimit } from "elysia-rate-limit";
 
 const taskController = new TaskController();
@@ -15,11 +14,6 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
   .derive(async (ctx) => {
     const user = await authenticate(ctx);
     return { user };
-  })
-  .guard({
-    beforeHandle(ctx) {
-      requirePermission("tasks:read")(ctx.user);
-    },
   })
   /**
    * GET /tasks
@@ -161,9 +155,9 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Delete task",
       description: "Delete a task",
     },
-    beforeHandle() {
+    beforeHandle: [
       rateLimit({
         max: 20,
-      });
-    },
+      }),
+    ],
   });
