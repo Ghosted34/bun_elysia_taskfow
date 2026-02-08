@@ -3,11 +3,10 @@
  * Pure route definitions - delegates to controller
  */
 
-import { Elysia, t, type Context } from "elysia";
+import { Elysia, t } from "elysia";
 import { TaskController } from "./task.controller";
-import { authenticate } from "../middlewares/authentication";
+import { authenticate, requireAuth } from "../middlewares/authentication";
 import { requirePermission } from "../middlewares/authorization";
-import { rateLimit } from "elysia-rate-limit";
 
 const taskController = new TaskController();
 
@@ -15,11 +14,6 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
   .derive(async (ctx) => {
     const user = await authenticate(ctx);
     return { user };
-  })
-  .guard({
-    beforeHandle(ctx) {
-      requirePermission("tasks:read")(ctx.user);
-    },
   })
   /**
    * GET /tasks
@@ -41,11 +35,7 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Get all tasks",
       description: "Retrieve tasks with optional filtering and pagination",
     },
-    beforeHandle() {
-      rateLimit({
-        max: 200,
-      });
-    },
+    beforeHandle: [requireAuth],
   })
 
   /**
@@ -62,11 +52,7 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Get task statistics",
       description: "Get aggregated task statistics",
     },
-    beforeHandle() {
-      rateLimit({
-        max: 60,
-      });
-    },
+    beforeHandle: [requireAuth, requirePermission("tasks:read")],
   })
 
   /**
@@ -83,11 +69,7 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Get task by ID",
       description: "Retrieve a specific task by its ID",
     },
-    beforeHandle() {
-      rateLimit({
-        max: 300,
-      });
-    },
+    beforeHandle: [requireAuth, requirePermission("tasks:read")],
   })
 
   /**
@@ -110,11 +92,7 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Create task",
       description: "Create a new task",
     },
-    beforeHandle() {
-      rateLimit({
-        max: 30,
-      });
-    },
+    beforeHandle: [requireAuth, requirePermission("tasks:create")],
   })
 
   /**
@@ -140,11 +118,7 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Update task",
       description: "Update an existing task",
     },
-    beforeHandle() {
-      rateLimit({
-        max: 60,
-      });
-    },
+    beforeHandle: [requireAuth, requirePermission("tasks:update")],
   })
 
   /**
@@ -161,9 +135,5 @@ export const tasksRoutes = new Elysia({ prefix: "/tasks" })
       summary: "Delete task",
       description: "Delete a task",
     },
-    beforeHandle() {
-      rateLimit({
-        max: 20,
-      });
-    },
+    beforeHandle: [requireAuth, requirePermission("tasks:delete")],
   });

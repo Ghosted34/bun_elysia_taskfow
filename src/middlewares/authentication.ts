@@ -117,3 +117,9 @@ export async function optionalAuthenticate(
     return null;
   }
 }
+
+export function requireAuth({ user }: { user?: AuthUser }) {
+  if (!user) {
+    throw new UnauthorizedError("Authentication required");
+  }
+}
