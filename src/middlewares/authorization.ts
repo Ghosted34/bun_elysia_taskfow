@@ -1,3 +1,4 @@
+import type { Context } from "elysia";
 import type { AuthUser } from "./authentication";
 import {
   hasAnyPermission,
@@ -6,71 +7,92 @@ import {
   type Role,
 } from "../utils/permissions";
 import { ForbiddenError } from "../utils/error";
-import type { Context } from "elysia";
 
 /**
- * Require specific permission
- * Use this to protect routes that need specific permissions
+ * Internal helper
  */
-export function requirePermission(permission: Permission) {
-  return (ctx: Context) => {
-    if (!hasPermission(ctx.user.role as Role, permission)) {
-      throw new ForbiddenError(
-        `Insufficient permissions. Required: ${permission}`,
-        { required: permission, userRole: ctx.user.role },
-      );
-    }
-  };
+function getUser(ctx: Context): AuthUser {
+  if (!ctx.user) {
+    throw new ForbiddenError("Unauthenticated");
+  }
+  return ctx.user;
 }
 
 /**
- * Require any of the specified permissions
+ * Require a specific permission
  */
-export function requireAnyPermission(permissions: Permission[]) {
-  return (user: AuthUser) => {
+export const requirePermission =
+  (permission: Permission) => async (ctx: Context) => {
+    const user = getUser(ctx);
+
+    if (!hasPermission(user.role as Role, permission)) {
+      throw new ForbiddenError(
+        `Insufficient permissions. Required: ${permission}`,
+        {
+          required: permission,
+          userRole: user.role,
+        },
+      );
+    }
+  };
+
+/**
+ * Require ANY of the specified permissions
+ */
+export const requireAnyPermission =
+  (permissions: Permission[]) => async (ctx: Context) => {
+    const user = getUser(ctx);
+
     if (!hasAnyPermission(user.role as Role, permissions)) {
       throw new ForbiddenError(
         `Insufficient permissions. Required one of: ${permissions.join(", ")}`,
-        { required: permissions, userRole: user.role },
+        {
+          required: permissions,
+          userRole: user.role,
+        },
       );
     }
   };
-}
 
 /**
- * Require specific role
+ * Require a specific role
  */
-export function requireRole(role: Role) {
-  return (user: AuthUser) => {
-    if (user.role !== role) {
-      throw new ForbiddenError(`Insufficient role. Required: ${role}`, {
-        required: role,
+export const requireRole = (role: Role) => async (ctx: Context) => {
+  const user = getUser(ctx);
+
+  if (user.role !== role) {
+    throw new ForbiddenError(`Insufficient role. Required: ${role}`, {
+      required: role,
+      userRole: user.role,
+    });
+  }
+};
+
+/**
+ * Require ANY of the specified roles
+ */
+export const requireAnyRole = (roles: Role[]) => async (ctx: Context) => {
+  const user = getUser(ctx);
+
+  if (!roles.includes(user.role as Role)) {
+    throw new ForbiddenError(
+      `Insufficient role. Required one of: ${roles.join(", ")}`,
+      {
+        required: roles,
         userRole: user.role,
-      });
-    }
-  };
-}
+      },
+    );
+  }
+};
 
 /**
- * Require any of the specified roles
+ * Require ownership of a resource
+ * (Admins bypass automatically)
  */
-export function requireAnyRole(roles: Role[]) {
-  return (user: AuthUser) => {
-    if (!roles.includes(user.role as Role)) {
-      throw new ForbiddenError(
-        `Insufficient role. Required one of: ${roles.join(", ")}`,
-        { required: roles, userRole: user.role },
-      );
-    }
-  };
-}
+export const requireOwnership =
+  (resourceOwnerId: string) => async (ctx: Context) => {
+    const user = getUser(ctx);
 
-/**
- * Check if user owns resource
- * Useful for allowing users to edit their own content
- */
-export function requireOwnership(resourceOwnerId: string) {
-  return (user: AuthUser) => {
     if (user.id !== resourceOwnerId && user.role !== "ADMIN") {
       throw new ForbiddenError("You can only modify your own resources", {
         resourceOwnerId,
@@ -78,4 +100,3 @@ export function requireOwnership(resourceOwnerId: string) {
       });
     }
   };
-}

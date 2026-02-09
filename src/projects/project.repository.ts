@@ -3,9 +3,13 @@
  * All database operations for projects
  */
 
-import { eq, and, like, desc, sql, type SQL } from 'drizzle-orm';
-import { projects, type NewProject, type Project } from '../../config/db/schema';
-import { db } from '../../config/db';
+import { eq, and, like, desc, sql, type SQL } from "drizzle-orm";
+import {
+  projects,
+  type NewProject,
+  type Project,
+} from "../../config/db/schema";
+import { db } from "../../config/db";
 
 export interface FindProjectsOptions {
   where?: SQL;
@@ -151,15 +155,19 @@ export class ProjectsRepository {
     data: NewProject;
     select?: (keyof typeof projects.$inferSelect)[];
   }) {
-    const returning = select?.reduce(
-      (acc, key) => {
-        acc[key] = projects[key];
-        return acc;
-      },
-      {} as Record<string, any>
-    ) || {};
+    const returning =
+      select?.reduce(
+        (acc, key) => {
+          acc[key] = projects[key];
+          return acc;
+        },
+        {} as Record<string, any>,
+      ) || {};
 
-    const [result] = await db.insert(projects).values(data).returning(returning);
+    const [result] = await db
+      .insert(projects)
+      .values(data)
+      .returning(returning);
     return result;
   }
 
@@ -172,7 +180,7 @@ export class ProjectsRepository {
       .set(data)
       .where(eq(projects.id, id))
       .returning();
-    
+
     return updatedProject!;
   }
 
@@ -188,13 +196,14 @@ export class ProjectsRepository {
     data: Partial<Project>;
     select?: (keyof typeof projects.$inferSelect)[];
   }) {
-    const returning = select?.reduce(
-      (acc, key) => {
-        acc[key] = projects[key];
-        return acc;
-      },
-      {} as Record<string, any>
-    ) || {};
+    const returning =
+      select?.reduce(
+        (acc, key) => {
+          acc[key] = projects[key];
+          return acc;
+        },
+        {} as Record<string, any>,
+      ) || {};
 
     const [result] = await db
       .update(projects)

@@ -1,14 +1,10 @@
-/**
- * Projects Controller
- * Handles HTTP request/response logic for projects
- */
-
-import type { Context } from "elysia";
-import { authenticate } from "../middlewares/authentication";
+import { type Context } from "elysia";
 import { ProjectsService } from "./project.service";
-import { requirePermission } from "../middlewares/authorization";
-import { createProjectSchema, projectQuerySchema, updateProjectSchema } from "./project.schema";
-
+import {
+  createProjectSchema,
+  updateProjectSchema,
+  projectQuerySchema,
+} from "./project.schema";
 
 const projectsService = new ProjectsService();
 
@@ -18,14 +14,11 @@ export class ProjectsController {
    * GET /projects
    */
   async getProjects(ctx: Context) {
-    const user = await authenticate(ctx);
-    requirePermission('projects:read')(user);
-
     const validated = projectQuerySchema.parse(ctx.query);
-    const projects = await projectsService.getProjects(validated, user);
+    const projects = await projectsService.getProjects(validated, ctx.user);
 
     return {
-      message: 'Projects retrieved successfully',
+      message: "Projects retrieved successfully",
       data: projects,
     };
   }
@@ -35,14 +28,11 @@ export class ProjectsController {
    * GET /projects/stats
    */
   async getProjectStats(ctx: Context) {
-    const user = await authenticate(ctx);
-    requirePermission('projects:read')(user);
-
     const { projectId } = ctx.query as { projectId?: string };
     const stats = await projectsService.getProjectStats(projectId);
 
     return {
-      message: 'Project statistics retrieved successfully',
+      message: "Project statistics retrieved successfully",
       data: stats,
     };
   }
@@ -52,12 +42,10 @@ export class ProjectsController {
    * GET /projects/my
    */
   async getMyProjects(ctx: Context) {
-    const user = await authenticate(ctx);
-
-    const projects = await projectsService.getUserProjects(user.id);
+    const projects = await projectsService.getUserProjects(ctx.user.id);
 
     return {
-      message: 'Your projects retrieved successfully',
+      message: "Your projects retrieved successfully",
       data: projects,
     };
   }
@@ -67,14 +55,11 @@ export class ProjectsController {
    * GET /projects/:id
    */
   async getProjectById(ctx: Context) {
-    const user = await authenticate(ctx);
-    requirePermission('projects:read')(user);
-
     const { id } = ctx.params as { id: string };
     const project = await projectsService.getProjectById(id);
 
     return {
-      message: 'Project retrieved successfully',
+      message: "Project retrieved successfully",
       data: project,
     };
   }
@@ -84,14 +69,11 @@ export class ProjectsController {
    * POST /projects
    */
   async createProject(ctx: Context) {
-    const user = await authenticate(ctx);
-    requirePermission('projects:create')(user);
-
     const validated = createProjectSchema.parse(ctx.body);
-    const project = await projectsService.createProject(validated, user.id);
+    const project = await projectsService.createProject(validated, ctx.user.id);
 
     return {
-      message: 'Project created successfully',
+      message: "Project created successfully",
       data: project,
     };
   }
@@ -101,15 +83,16 @@ export class ProjectsController {
    * PATCH /projects/:id
    */
   async updateProject(ctx: Context) {
-    const user = await authenticate(ctx);
-    requirePermission('projects:update')(user);
-
     const { id } = ctx.params as { id: string };
     const validated = updateProjectSchema.parse(ctx.body);
-    const project = await projectsService.updateProject(id, validated, user);
+    const project = await projectsService.updateProject(
+      id,
+      validated,
+      ctx.user,
+    );
 
     return {
-      message: 'Project updated successfully',
+      message: "Project updated successfully",
       data: project,
     };
   }
@@ -119,14 +102,11 @@ export class ProjectsController {
    * DELETE /projects/:id
    */
   async deleteProject(ctx: Context) {
-    const user = await authenticate(ctx);
-    requirePermission('projects:delete')(user);
-
     const { id } = ctx.params as { id: string };
-    await projectsService.deleteProject(id, user);
+    await projectsService.deleteProject(id, ctx.user);
 
     return {
-      message: 'Project deleted successfully',
+      message: "Project deleted successfully",
     };
   }
 }

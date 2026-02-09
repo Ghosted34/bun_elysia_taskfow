@@ -5,9 +5,9 @@
 
 import { Elysia, t } from "elysia";
 import { ProjectsController } from "./project.controller";
-import { authenticate } from "../middlewares/authentication";
+import { rateLimit, rateLimitPresets } from "../middlewares/rateLimit";
 import { requirePermission } from "../middlewares/authorization";
-import { rateLimit } from "elysia-rate-limit";
+import { authenticate, requireAuth } from "../middlewares/authentication";
 
 const projectsController = new ProjectsController();
 
@@ -16,6 +16,7 @@ export const projectsRoutes = new Elysia({ prefix: "/projects" })
     const user = await authenticate(ctx);
     return { user };
   })
+
   /**
    * GET /projects
    * List all projects with filtering
@@ -27,14 +28,7 @@ export const projectsRoutes = new Elysia({ prefix: "/projects" })
       limit: t.Optional(t.String()),
       offset: t.Optional(t.String()),
     }),
-    beforeHandle: [
-      rateLimit({
-        max: 200,
-        errorResponse: "Too many requests",
-        scoping: "scoped",
-      }),
-      requirePermission("projects:read"),
-    ],
+    beforeHandle: [requireAuth, requirePermission("projects:read")],
     detail: {
       tags: ["Projects"],
       summary: "Get all projects",
@@ -50,7 +44,7 @@ export const projectsRoutes = new Elysia({ prefix: "/projects" })
     query: t.Object({
       projectId: t.Optional(t.String()),
     }),
-    beforeHandle: [requirePermission("projects:read")],
+    beforeHandle: [requireAuth, requirePermission("projects:read")],
     detail: {
       tags: ["Projects"],
       summary: "Get project statistics",
@@ -63,7 +57,7 @@ export const projectsRoutes = new Elysia({ prefix: "/projects" })
    * Get current user's projects
    */
   .get("/my", async (ctx) => projectsController.getMyProjects(ctx), {
-    beforeHandle: requireAuth,
+    beforeHandle: [requireAuth],
     detail: {
       tags: ["Projects"],
       summary: "Get my projects",
